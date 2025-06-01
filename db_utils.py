@@ -5,8 +5,7 @@ DB_FILE = "finai.db"
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-
-    # ✅ Create user profile table
+    
     c.execute("""
     CREATE TABLE IF NOT EXISTS user_profile (
         user_id TEXT PRIMARY KEY,
@@ -15,11 +14,11 @@ def init_db():
         income_range TEXT,
         savings_style TEXT,
         marital_status TEXT,
-        financial_style TEXT
+        financial_style TEXT,
+        password TEXT
     )
     """)
-
-    # ✅ Create chat history table
+    
     c.execute("""
     CREATE TABLE IF NOT EXISTS chat_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -29,10 +28,15 @@ def init_db():
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
     )
     """)
+    
+    # ✅ Add password column only if it's missing
+    c.execute("PRAGMA table_info(user_profile)")
+    existing_columns = [col[1] for col in c.fetchall()]
+    if "password" not in existing_columns:
+        c.execute("ALTER TABLE user_profile ADD COLUMN password TEXT")
 
     conn.commit()
     conn.close()
-
 
 def get_user_profile(user_id):
     conn = sqlite3.connect(DB_FILE)
@@ -47,12 +51,21 @@ def save_user_profile(user_id, data):
     c = conn.cursor()
     c.execute("""
     INSERT OR REPLACE INTO user_profile 
-    (user_id, name, age_group, income_range, savings_style, marital_status, financial_style)
-    VALUES (?, ?, ?, ?, ?, ?, ?)""",
+    (user_id, name, age_group, income_range, savings_style, marital_status, financial_style, password)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
     (user_id, data.get("name"), data.get("age_group"), data.get("income_range"),
-     data.get("savings_style"), data.get("marital_status"), data.get("financial_style")))
+     data.get("savings_style"), data.get("marital_status"), data.get("financial_style"),
+     data.get("password")))
     conn.commit()
     conn.close()
+
+def verify_password(user_id, password):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT password FROM user_profile WHERE user_id = ?", (user_id,))
+    row = c.fetchone()
+    conn.close()
+    return row and row[0] == password
 
 def save_chat_message(user_id, sender, message):
     conn = sqlite3.connect(DB_FILE)
